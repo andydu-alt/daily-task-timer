@@ -1360,7 +1360,8 @@ checkAuth();
 
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/daily-task-timer/sw.js', { scope: '/daily-task-timer/' });
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
   }
 </script>
 </body>
