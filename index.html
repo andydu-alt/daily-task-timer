@@ -516,7 +516,6 @@
   </div>
 
   <div class="tasks-list" id="tasksList"></div>
-  <div id="debugInfo" style="display:none;font-size:11px;color:#888;padding:8px;word-break:break-all;"></div>
 </div>
 
 <script>
@@ -692,10 +691,7 @@ function showApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appContainer').style.display = '';
   document.getElementById('headerEmail').textContent = getLoggedInEmail();
-  try { initApp(); } catch(e) {
-    const el = document.getElementById('debugInfo');
-    if (el) { el.textContent = 'CRASH: ' + e.message; el.style.display = 'block'; }
-  }
+  initApp();
 }
 
 function showAuthPanel(panel) {
