@@ -839,32 +839,45 @@ let movingTaskId = null;
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); }
 
-function initApp() {
-  const key = getUserStorageKey();
-  // Migrate tasks created before auth was added (stored under 'dailyTasks')
-  if (key !== 'dailyTasks' && !localStorage.getItem(key)) {
-    const legacy = localStorage.getItem('dailyTasks');
-    if (legacy) { localStorage.setItem(key, legacy); localStorage.removeItem('dailyTasks'); }
-  }
-  // If still empty, scan for any dailyTasks_ key with data (handles JWT parse failure edge case)
-  if (!localStorage.getItem(key)) {
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('dailyTasks_') && k !== key && localStorage.getItem(k)) {
-        localStorage.setItem(key, localStorage.getItem(k));
-        break;
-      }
-    }
-  }
-  // DEBUG
-  let dbg = 'key=' + key + ' | uid=' + (localStorage.getItem(USER_ID_KEY) || 'none');
+// ── Cloud sync via Netlify Identity user_metadata ──────────────────────────
+let _syncTimer = null;
+
+async function fetchTasksFromServer() {
+  const s = getSession();
+  if (!s || !s.access_token) return null;
   try {
-    const raw = localStorage.getItem(key);
-    dbg += ' | tasks=' + (raw ? JSON.parse(raw).length + ' items' : 'null');
-  } catch(e) { dbg += ' | parse-err=' + e.message; }
-  const el = document.getElementById('debugInfo');
-  if (el) { el.textContent = dbg; el.style.display = 'block'; }
-  tasks = JSON.parse(localStorage.getItem(key) || '[]');
+    const res = await fetch(IDENTITY_BASE + '/user', {
+      headers: { Authorization: 'Bearer ' + s.access_token }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.user_metadata && data.user_metadata.tasks) || null;
+  } catch { return null; }
+}
+
+async function pushTasksToServer(taskList) {
+  const s = getSession();
+  if (!s || !s.access_token) return;
+  try {
+    await fetch(IDENTITY_BASE + '/user', {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + s.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { tasks: taskList } })
+    });
+  } catch {}
+}
+
+function scheduleSyncToServer() {
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => pushTasksToServer(tasks), 1500);
+}
+
+function saveTasks() {
+  localStorage.setItem(getUserStorageKey(), JSON.stringify(tasks));
+  scheduleSyncToServer();
+}
+
+async function initApp() {
   activeTaskId = null;
   editingElapsedId = null;
   movingTaskId = null;
@@ -873,6 +886,35 @@ function initApp() {
   document.getElementById('taskDate').value = todayStr();
   selectedDate = todayStr();
   document.getElementById('taskName').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+  // Show cached tasks immediately while fetching from server
+  const key = getUserStorageKey();
+  const localRaw = localStorage.getItem(key);
+  // Migrate legacy key
+  if (!localRaw) {
+    const legacy = localStorage.getItem('dailyTasks');
+    if (legacy) { localStorage.setItem(key, legacy); localStorage.removeItem('dailyTasks'); }
+    else {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('dailyTasks_') && k !== key && localStorage.getItem(k)) {
+          localStorage.setItem(key, localStorage.getItem(k)); break;
+        }
+      }
+    }
+  }
+  tasks = JSON.parse(localStorage.getItem(key) || '[]');
+  renderAll();
+
+  // Fetch from server — use server version if newer (more tasks)
+  const serverTasks = await fetchTasksFromServer();
+  if (serverTasks && Array.isArray(serverTasks) && serverTasks.length >= tasks.length) {
+    tasks = serverTasks;
+    localStorage.setItem(key, JSON.stringify(tasks));
+  } else if (tasks.length > 0 && (!serverTasks || tasks.length > serverTasks.length)) {
+    // Local has more — push to server to sync
+    pushTasksToServer(tasks);
+  }
 
   const running = tasks.find(t => t.running && t.startedAt);
   if (running) {
@@ -889,8 +931,6 @@ function initApp() {
   renderAll();
   startTick();
 }
-
-function saveTasks() { localStorage.setItem(getUserStorageKey(), JSON.stringify(tasks)); }
 
 const MAX_DAY_SEC = 8 * 3600;
 
