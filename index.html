@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Daily Task Timer</title>
+
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1c1c1b" media="(prefers-color-scheme: dark)" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Task Timer" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff; --bg-secondary: #f5f5f4; --bg-tertiary: #eeede8;
+    --bg-info: #e6f1fb; --bg-danger: #fcebeb; --bg-success: #eaf3de;
+    --text: #1a1a19; --text-secondary: #6b6b68;
+    --text-info: #185fa5; --text-danger: #a32d2d; --text-success: #3b6d11;
+    --border: rgba(0,0,0,0.12); --border-md: rgba(0,0,0,0.22);
+    --border-info: rgba(24,95,165,0.35); --border-danger: rgba(163,45,45,0.35);
+    --radius-md: 10px; --radius-lg: 14px;
+    --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1b; --bg-secondary: #252524; --bg-tertiary: #2e2e2c;
+      --bg-info: #0c2540; --bg-danger: #2a1010; --bg-success: #0f2306;
+      --text: #f0efe8; --text-secondary: #9c9b96;
+      --text-info: #85b7eb; --text-danger: #f09595; --text-success: #97c459;
+      --border: rgba(255,255,255,0.10); --border-md: rgba(255,255,255,0.20);
+      --border-info: rgba(133,183,235,0.3); --border-danger: rgba(240,149,149,0.3);
+    }
+  }
+
+  html { height: 100%; }
+  body {
+    font-family: var(--font);
+    background: var(--bg-tertiary);
+    color: var(--text);
+    min-height: 100%;
+    padding: calc(var(--safe-top) + 1rem) 1rem calc(var(--safe-bottom) + 1.5rem);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .container { max-width: 540px; margin: 0 auto; }
+
+  h1 {
+    font-size: 18px; font-weight: 600; margin-bottom: 1.25rem;
+    color: var(--text); display: flex; align-items: center; gap: 8px;
+  }
+  h1 i { font-size: 20px; color: var(--text-secondary); }
+
+  .card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1rem;
+    margin-bottom: 0.875rem;
+  }
+  .section-label {
+    font-size: 11px; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    font-weight: 600; margin-bottom: 10px;
+  }
+
+  .add-row { display: flex; flex-direction: column; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .field input {
+    height: 44px;
+    padding: 0 12px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text);
+    font-size: 16px;
+    font-family: var(--font);
+    outline: none;
+    transition: box-shadow 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field input:focus { box-shadow: 0 0 0 2.5px var(--border-info); border-color: transparent; }
+  .field input[type="date"] { color-scheme: light dark; }
+
+  .add-row-bottom { display: flex; gap: 8px; }
+  .add-row-bottom .field { flex: 1; }
+
+  .btn {
+    height: 44px; padding: 0 16px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-md);
+    background: transparent; color: var(--text);
+    font-size: 15px; font-family: var(--font);
+    cursor: pointer; display: inline-flex; align-items: center;
+    gap: 6px; white-space: nowrap;
+    transition: background 0.12s, transform 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    background: var(--bg-info); color: var(--text-info);
+    border-color: var(--border-info); font-weight: 500;
+    width: 100%; justify-content: center;
+  }
+  .btn.primary:active { opacity: 0.8; }
+  .btn:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+
+  .error-msg { font-size: 12px; color: var(--text-danger); margin-top: 4px; display: none; }
+  .error-msg.show { display: block; }
+
+  .move-day-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .move-day-row input[type="date"] {
+    height: 36px; padding: 0 10px; font-size: 15px;
+    border: 0.5px solid var(--border-md); border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text); outline: none;
+    color-scheme: light dark; -webkit-appearance: none;
+  }
+  .move-day-row input[type="date"]:focus { box-shadow: 0 0 0 2px var(--border-info); border-color: transparent; }
+  .move-day-row .inline-edit-btn { width: 32px; height: 32px; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; touch-action: manipulation; }
+
+  .date-row {
+    display: flex; gap: 6px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 2px;
+    margin-bottom: 0.875rem;
+  }
+  .date-row::-webkit-scrollbar { display: none; }
+  .date-tab {
+    font-size: 13px; color: var(--text-secondary);
+    padding: 7px 14px;
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer; background: transparent;
+    font-family: var(--font); white-space: nowrap;
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    flex-shrink: 0;
+  }
+  .date-tab.active {
+    background: var(--bg); color: var(--text);
+    border-color: var(--border-md); font-weight: 600;
+  }
+
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px; margin-bottom: 0.875rem;
+  }
+  .metric {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 12px;
+  }
+  .metric-label { font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .metric-value { font-size: 20px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
+  .metric-value.accent { color: var(--text-info); }
+
+  .tasks-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .task-item {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .task-item.running { border-color: var(--border-info); background: var(--bg-info); }
+  .task-item.done { opacity: 0.45; }
+
+  .task-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .task-name { font-size: 15px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+  .task-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .task-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; min-width: 100px; }
+  .timer-row { display: flex; align-items: center; gap: 4px; }
+  .task-timer { font-size: 22px; font-weight: 600; font-family: var(--font-mono); color: var(--text); letter-spacing: -0.03em; }
+  .task-timer.urgent { color: var(--text-danger); }
+  .task-used { font-size: 11px; color: var(--text-secondary); }
+  .progress-bar-wrap { height: 3px; background: var(--border); border-radius: 2px; width: 80px; }
+  .progress-bar-fill { height: 100%; border-radius: 2px; background: var(--text-info); transition: width 1s linear; }
+
+  .task-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .task-sub { font-size: 12px; color: var(--text-secondary); }
+
+  .task-controls { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .icon-btn {
+    width: 44px; height: 44px;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    background: transparent; color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    transition: background 0.12s, transform 0.08s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .icon-btn:active { transform: scale(0.93); }
+  .icon-btn:disabled { opacity: 0.25; cursor: default; }
+  .icon-btn.active { background: var(--bg-info); color: var(--text-info); border-color: var(--border-info); }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-md); flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .status-dot.running { background: #1D9E75; }
+  .status-dot.done { background: var(--border); }
+
+  .edit-elapsed-btn {
+    width: 28px; height: 28px; border: none; background: transparent;
+    color: var(--text-secondary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; border-radius: 6px; padding: 0;
+    touch-action: manipulation;
+  }
+  .edit-elapsed-btn:active { background: var(--bg-secondary); }
+  .inline-edit { display: flex; align-items: center; gap: 5px; }
+  .inline-edit input {
+    width: 64px; height: 36px; padding: 0 8px;
+    font-size: 16px; font-family: var(--font-mono);
+    border: 0.5px solid var(--border-md); border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text); outline: none;
+    -webkit-appearance: none;
+  }
+  .inline-edit input:focus { box-shadow: 0 0 0 2px var(--border-info); border-color: transparent; }
+  .inline-edit span { font-size: 11px; color: var(--text-secondary); }
+  .inline-edit-btn {
+    width: 32px; height: 32px; border: none; border-radius: 6px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; touch-action: manipulation;
+  }
+  .inline-edit-btn.ok { background: var(--bg-info); color: var(--text-info); }
+  .inline-edit-btn.cancel { background: var(--bg-secondary); color: var(--text-secondary); }
+
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); font-size: 14px; }
+  .empty-state i { font-size: 32px; display: block; margin-bottom: 12px; opacity: 0.4; }
+
+  .drag-handle { color: var(--text-secondary); opacity: 0.35; font-size: 15px; flex-shrink: 0; }
+  .task-item.touch-dragging { opacity: 0.3; }
+  .task-item.drag-over { border-color: var(--border-info); border-width: 2px; background: var(--bg-info); }
+  .drag-ghost {
+    position: fixed; z-index: 999; pointer-events: none;
+    opacity: 0.92; border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+    transform: scale(1.02);
+    transition: none;
+  }
+
+  /* ── Auth screen ── */
+  #authScreen {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    padding: calc(var(--safe-top) + 1.5rem) 1rem calc(var(--safe-bottom) + 1.5rem);
+    overflow-y: auto;
+  }
+  #authScreen.hidden { display: none; }
+
+  .auth-wrap {
+    width: 100%; max-width: 375px;
+    display: flex; flex-direction: column; align-items: center; gap: 24px;
+  }
+
+  .auth-logo {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .auth-logo i { font-size: 40px; color: var(--text-info); }
+  .auth-logo-title { font-size: 20px; font-weight: 700; color: var(--text); }
+
+  .auth-card {
+    width: 100%;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 20px;
+  }
+
+  .auth-tabs {
+    display: flex; gap: 0; margin-bottom: 20px;
+    border: 0.5px solid var(--border-md); border-radius: var(--radius-md); overflow: hidden;
+  }
+  .auth-tab {
+    flex: 1; height: 38px; border: none; background: transparent;
+    color: var(--text-secondary); font-size: 14px; font-family: var(--font);
+    cursor: pointer; transition: background 0.12s, color 0.12s;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .auth-tab.active { background: var(--bg-info); color: var(--text-info); font-weight: 600; }
+
+  .auth-panel { display: none; flex-direction: column; gap: 14px; }
+  .auth-panel.active { display: flex; }
+
+  .auth-field { display: flex; flex-direction: column; gap: 5px; }
+  .auth-field label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+  .auth-field input {
+    height: 44px; padding: 0 12px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius-md);
+    background: var(--bg); color: var(--text);
+    font-size: 16px; font-family: var(--font);
+    outline: none; transition: box-shadow 0.15s;
+    -webkit-appearance: none; appearance: none;
+    width: 100%;
+  }
+  .auth-field input:focus { box-shadow: 0 0 0 2.5px var(--border-info); border-color: transparent; }
+
+  .auth-error {
+    font-size: 12px; color: var(--text-danger);
+    background: var(--bg-danger); border: 0.5px solid var(--border-danger);
+    border-radius: var(--radius-md); padding: 8px 10px;
+    display: none;
+  }
+  .auth-error.show { display: block; }
+
+  .auth-success {
+    font-size: 13px; color: var(--text-success);
+    background: var(--bg-success); border: 0.5px solid rgba(59,109,17,0.25);
+    border-radius: var(--radius-md); padding: 10px 12px;
+    display: none;
+  }
+  .auth-success.show { display: block; }
+
+  .remember-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: var(--text-secondary); cursor: pointer;
+  }
+  .remember-label input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; }
+
+  .auth-link {
+    font-size: 13px; color: var(--text-info); background: none; border: none;
+    cursor: pointer; padding: 0; font-family: var(--font); text-decoration: underline;
+    text-decoration-color: transparent; transition: text-decoration-color 0.15s;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    align-self: flex-start;
+  }
+  .auth-link:hover { text-decoration-color: var(--text-info); }
+
+  .auth-closed {
+    font-size: 13px; color: var(--text-secondary);
+    background: var(--bg-secondary); border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); padding: 12px 14px;
+    text-align: center; display: none;
+  }
+  .auth-closed.show { display: block; }
+
+  /* ── Header user row ── */
+  .header-user {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto;
+  }
+  .header-email {
+    font-size: 11px; color: var(--text-secondary);
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .logout-btn {
+    width: 32px; height: 32px; border: 0.5px solid var(--border);
+    border-radius: var(--radius-md); background: transparent; color: var(--text-secondary);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .logout-btn:active { background: var(--bg-secondary); }
+</style>
+</head>
+<body>
+
+<!-- Auth screen v2 -->
+<div id="authScreen">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <i class="ti ti-clock-hour-4" aria-hidden="true"></i>
+      <span class="auth-logo-title">Task Timer</span>
+    </div>
+    <div class="auth-card">
+      <div class="auth-tabs" id="authTabs">
+        <button class="auth-tab active" id="tabLogin" onclick="showAuthPanel('login')">Sign in</button>
+        <button class="auth-tab" id="tabRegister" onclick="showAuthPanel('register')">Register</button>
+      </div>
+
+      <!-- Login -->
+      <div class="auth-panel active" id="panelLogin">
+        <div class="auth-field">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" autocomplete="email" inputmode="email" />
+        </div>
+        <div class="auth-field">
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" autocomplete="current-password" />
+        </div>
+        <div class="auth-success" id="loginSuccess"></div>
+        <div class="auth-error" id="loginError"></div>
+        <label class="remember-label">
+          <input type="checkbox" id="rememberMe" /> Remember me
+        </label>
+        <button class="btn primary" id="loginBtn" onclick="doLogin()">
+          <i class="ti ti-login" aria-hidden="true"></i> Sign in
+        </button>
+        <button class="auth-link" onclick="showAuthPanel('forgot')">Forgot password?</button>
+      </div>
+
+      <!-- Register -->
+      <div class="auth-panel" id="panelRegister">
+        <div class="auth-closed" id="registerClosed">Registration is closed — this app is for 2 users only.</div>
+        <div id="registerForm">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div class="auth-field">
+              <label for="regEmail">Email</label>
+              <input type="email" id="regEmail" autocomplete="email" inputmode="email" />
+            </div>
+            <div class="auth-field">
+              <label for="regPassword">Password (min 8 characters)</label>
+              <input type="password" id="regPassword" autocomplete="new-password" />
+            </div>
+            <div class="auth-field">
+              <label for="regConfirm">Confirm password</label>
+              <input type="password" id="regConfirm" autocomplete="new-password" />
+            </div>
+            <div class="auth-error" id="regError"></div>
+            <div class="auth-success" id="regSuccess">Check your email to confirm your account, then sign in.</div>
+            <button class="btn primary" id="regBtn" onclick="doRegister()">
+              <i class="ti ti-user-plus" aria-hidden="true"></i> Create account
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Forgot password -->
+      <div class="auth-panel" id="panelForgot">
+        <div class="auth-field">
+          <label for="forgotEmail">Email</label>
+          <input type="email" id="forgotEmail" autocomplete="email" inputmode="email" />
+        </div>
+        <div class="auth-error" id="forgotError"></div>
+        <div class="auth-success" id="forgotSuccess">Reset link sent — check your email.</div>
+        <button class="btn primary" id="forgotBtn" onclick="doForgot()">
+          <i class="ti ti-mail" aria-hidden="true"></i> Send reset link
+        </button>
+        <button class="auth-link" onclick="showAuthPanel('login')">Back to sign in</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div class="container" id="appContainer" style="display:none;">
+  <h1>
+    <i class="ti ti-clock-hour-4" aria-hidden="true"></i> Daily Task Timer
+    <div class="header-user">
+      <span class="header-email" id="headerEmail"></span>
+      <button class="logout-btn" onclick="doLogout()" aria-label="Sign out">
+        <i class="ti ti-logout" aria-hidden="true"></i>
+      </button>
+    </div>
+  </h1>
+
+  <div class="card">
+    <div class="section-label">Add task</div>
+    <div class="add-row">
+      <div class="field">
+        <label for="taskName">Task name</label>
+        <input type="text" id="taskName" placeholder="e.g. Review FRD draft"
+               maxlength="50" autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
+      <div class="add-row-bottom">
+        <div class="field">
+          <label for="taskEst">Est. (min)</label>
+          <input type="number" id="taskEst" min="1" max="480" value="30" inputmode="numeric" />
+        </div>
+        <div class="field">
+          <label for="taskDate">Date</label>
+          <input type="date" id="taskDate" />
+        </div>
+      </div>
+      <button class="btn primary" onclick="addTask()">
+        <i class="ti ti-plus" aria-hidden="true"></i> Add Task
+      </button>
+      <div class="error-msg" id="addError"></div>
+    </div>
+  </div>
+
+  <div class="date-row" id="dateTabs"></div>
+
+  <div class="summary-grid">
+    <div class="metric">
+      <div class="metric-label">Estimated</div>
+      <div class="metric-value" id="totalEst">0m</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Elapsed</div>
+      <div class="metric-value accent" id="totalElapsed">0m</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Tasks</div>
+      <div class="metric-value" id="totalTasks">0</div>
+    </div>
+  </div>
+
+  <div class="tasks-list" id="tasksList"></div>
+  <div id="debugInfo" style="display:none;font-size:11px;color:#888;padding:8px;word-break:break-all;"></div>
+</div>
+
+<script>
+const AUTH_SESSION_KEY = 'authSession';
+const IDENTITY_BASE = 'https://daily-task-timer.netlify.app/.netlify/identity';
+
+const USER_ID_KEY = 'authUserId';
+
+function getSession() {
+  try {
+    const raw = localStorage.getItem(AUTH_SESSION_KEY) || sessionStorage.getItem(AUTH_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function saveSession(s, remember) {
+  const payload = parseJwt(s.access_token);
+  if (payload.sub) localStorage.setItem(USER_ID_KEY, payload.sub);
+  const str = JSON.stringify(s);
+  if (remember) {
+    localStorage.setItem(AUTH_SESSION_KEY, str);
+    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  } else {
+    sessionStorage.setItem(AUTH_SESSION_KEY, str);
+    localStorage.removeItem(AUTH_SESSION_KEY);
+  }
+}
+function clearSession() {
+  localStorage.removeItem(AUTH_SESSION_KEY);
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  // Note: USER_ID_KEY intentionally kept so tasks remain findable on next login
+}
+
+function parseJwt(token) {
+  try {
+    let b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    b64 += '='.repeat((4 - b64.length % 4) % 4);
+    return JSON.parse(atob(b64));
+  } catch { return {}; }
+}
+
+function getUserStorageKey() {
+  const stored = localStorage.getItem(USER_ID_KEY);
+  if (stored) return 'dailyTasks_' + stored;
+  const s = getSession();
+  if (!s) return 'dailyTasks';
+  const payload = parseJwt(s.access_token);
+  return payload.sub ? 'dailyTasks_' + payload.sub : 'dailyTasks';
+}
+
+function getLoggedInEmail() {
+  const s = getSession();
+  if (!s) return '';
+  const payload = parseJwt(s.access_token);
+  return payload.email || '';
+}
+
+function isRemembered() {
+  return !!localStorage.getItem(AUTH_SESSION_KEY);
+}
+
+async function refreshToken() {
+  const s = getSession();
+  if (!s || !s.refresh_token) return false;
+  try {
+    const res = await fetch(IDENTITY_BASE + '/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(s.refresh_token)
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    saveSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token || s.refresh_token,
+      expires_at: Date.now() + (data.expires_in || 3600) * 1000
+    }, isRemembered());
+    return true;
+  } catch { return false; }
+}
+
+async function handleTokenFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return false;
+  const params = new URLSearchParams(hash);
+  history.replaceState(null, '', window.location.pathname);
+
+  const confirmToken = params.get('confirmation_token');
+  const recoveryToken = params.get('recovery_token');
+  const accessToken = params.get('access_token');
+
+  if (confirmToken) {
+    try {
+      const res = await fetch(IDENTITY_BASE + '/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: confirmToken, type: 'signup' })
+      });
+      showAuthScreen();
+      if (res.ok) {
+        const el = document.getElementById('loginSuccess');
+        if (el) { el.textContent = 'Email confirmed! You can now sign in.'; el.classList.add('show'); }
+      } else {
+        setAuthError('loginError', 'Confirmation link expired or already used. Please register again.');
+      }
+    } catch { showAuthScreen(); }
+    return true;
+  }
+
+  if (recoveryToken) {
+    try {
+      const res = await fetch(IDENTITY_BASE + '/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: recoveryToken, type: 'recovery' })
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        saveSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token || '',
+          expires_at: Date.now() + (data.expires_in || 3600) * 1000
+        }, true);
+        showApp();
+        return true;
+      }
+    } catch {}
+    showAuthScreen();
+    return true;
+  }
+
+  if (accessToken) {
+    saveSession({
+      access_token: accessToken,
+      refresh_token: params.get('refresh_token') || '',
+      expires_at: Date.now() + (parseInt(params.get('expires_in') || '3600')) * 1000
+    }, true);
+    showApp();
+    return true;
+  }
+
+  return false;
+}
+
+async function checkAuth() {
+  const handled = await handleTokenFromHash();
+  if (handled) return;
+  const s = getSession();
+  if (!s || !s.access_token) { showAuthScreen(); return; }
+  if (Date.now() >= s.expires_at - 60000) {
+    const ok = await refreshToken();
+    if (!ok) { clearSession(); showAuthScreen(); return; }
+  }
+  showApp();
+}
+
+function showAuthScreen() {
+  document.getElementById('authScreen').classList.remove('hidden');
+  document.getElementById('appContainer').style.display = 'none';
+  ['loginBtn','regBtn','forgotBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  showAuthPanel('login');
+}
+
+function showApp() {
+  // Ensure userId is always written before initApp reads the storage key
+  const s = getSession();
+  if (s && s.access_token) {
+    const payload = parseJwt(s.access_token);
+    if (payload.sub) localStorage.setItem(USER_ID_KEY, payload.sub);
+  }
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('appContainer').style.display = '';
+  document.getElementById('headerEmail').textContent = getLoggedInEmail();
+  try { initApp(); } catch(e) {
+    const el = document.getElementById('debugInfo');
+    if (el) { el.textContent = 'CRASH: ' + e.message; el.style.display = 'block'; }
+  }
+}
+
+function showAuthPanel(panel) {
+  ['login', 'register', 'forgot'].forEach(p => {
+    document.getElementById('panel' + p.charAt(0).toUpperCase() + p.slice(1)).classList.remove('active');
+  });
+  document.getElementById('tabLogin').classList.remove('active');
+  document.getElementById('tabRegister').classList.remove('active');
+  document.getElementById('panel' + panel.charAt(0).toUpperCase() + panel.slice(1)).classList.add('active');
+  if (panel === 'login') document.getElementById('tabLogin').classList.add('active');
+  if (panel === 'register') document.getElementById('tabRegister').classList.add('active');
+  clearAuthErrors();
+}
+
+function clearAuthErrors() {
+  ['loginError','regError','forgotError'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ''; el.classList.remove('show'); }
+  });
+  ['loginSuccess','regSuccess','forgotSuccess'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+}
+
+function setAuthError(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg; el.classList.add('show');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  if (!email || !password) { setAuthError('loginError', 'Enter your email and password.'); return; }
+  btn.disabled = true;
+  document.getElementById('loginError').classList.remove('show');
+  try {
+    const res = await fetch(IDENTITY_BASE + '/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=password&username=' + encodeURIComponent(email) + '&password=' + encodeURIComponent(password)
+    });
+    const data = await res.json();
+    if (!res.ok) { setAuthError('loginError', data.error_description || data.msg || 'Login failed.'); btn.disabled = false; return; }
+    const remember = document.getElementById('rememberMe') && document.getElementById('rememberMe').checked;
+    saveSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + (data.expires_in || 3600) * 1000
+    }, remember);
+    showApp();
+  } catch { setAuthError('loginError', 'Network error. Try again.'); btn.disabled = false; }
+}
+
+async function doRegister() {
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const confirm = document.getElementById('regConfirm').value;
+  const btn = document.getElementById('regBtn');
+  document.getElementById('regError').classList.remove('show');
+  document.getElementById('regSuccess').classList.remove('show');
+  if (!email || !password || !confirm) { setAuthError('regError', 'All fields are required.'); return; }
+  if (password.length < 8) { setAuthError('regError', 'Password must be at least 8 characters.'); return; }
+  if (password !== confirm) { setAuthError('regError', 'Passwords do not match.'); return; }
+  btn.disabled = true;
+  try {
+    const res = await fetch(IDENTITY_BASE + '/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.msg || data.message || '';
+      if (msg.toLowerCase().includes('maximum') || msg.toLowerCase().includes('closed') || res.status === 422) {
+        document.getElementById('registerClosed').classList.add('show');
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        setAuthError('regError', msg || 'Registration failed.');
+      }
+      btn.disabled = false; return;
+    }
+    document.getElementById('regEmail').value = '';
+    document.getElementById('regPassword').value = '';
+    document.getElementById('regConfirm').value = '';
+    btn.disabled = false;
+    showAuthPanel('login');
+    const el = document.getElementById('loginSuccess');
+    if (el) { el.textContent = 'Account created — check your email to confirm, then sign in.'; el.classList.add('show'); }
+  } catch { setAuthError('regError', 'Network error. Try again.'); btn.disabled = false; }
+}
+
+async function doForgot() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  const btn = document.getElementById('forgotBtn');
+  document.getElementById('forgotError').classList.remove('show');
+  document.getElementById('forgotSuccess').classList.remove('show');
+  if (!email) { setAuthError('forgotError', 'Enter your email address.'); return; }
+  btn.disabled = true;
+  try {
+    const res = await fetch(IDENTITY_BASE + '/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAuthError('forgotError', data.msg || 'Failed to send reset link.'); btn.disabled = false; return;
+    }
+    document.getElementById('forgotSuccess').classList.add('show');
+    document.getElementById('forgotEmail').value = '';
+    btn.disabled = false;
+  } catch { setAuthError('forgotError', 'Network error. Try again.'); btn.disabled = false; }
+}
+
+function doLogout() {
+  clearInterval(tickInterval);
+  activeTaskId = null;
+  clearSession();
+  showAuthScreen();
+}
+
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPassword').focus(); });
+document.getElementById('regConfirm').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('forgotEmail').addEventListener('keydown', e => { if (e.key === 'Enter') doForgot(); });
+
+
+</script>
+
+<script>
+let tasks = [];
+let activeTaskId = null;
+let tickInterval = null;
+let selectedDate = null;
+let editingElapsedId = null;
+let movingTaskId = null;
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); }
+
+function initApp() {
+  const key = getUserStorageKey();
+  // Migrate tasks created before auth was added (stored under 'dailyTasks')
+  if (key !== 'dailyTasks' && !localStorage.getItem(key)) {
+    const legacy = localStorage.getItem('dailyTasks');
+    if (legacy) { localStorage.setItem(key, legacy); localStorage.removeItem('dailyTasks'); }
+  }
+  // If still empty, scan for any dailyTasks_ key with data (handles JWT parse failure edge case)
+  if (!localStorage.getItem(key)) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('dailyTasks_') && k !== key && localStorage.getItem(k)) {
+        localStorage.setItem(key, localStorage.getItem(k));
+        break;
+      }
+    }
+  }
+  // DEBUG
+  let dbg = 'key=' + key + ' | uid=' + (localStorage.getItem(USER_ID_KEY) || 'none');
+  try {
+    const raw = localStorage.getItem(key);
+    dbg += ' | tasks=' + (raw ? JSON.parse(raw).length + ' items' : 'null');
+  } catch(e) { dbg += ' | parse-err=' + e.message; }
+  const el = document.getElementById('debugInfo');
+  if (el) { el.textContent = dbg; el.style.display = 'block'; }
+  tasks = JSON.parse(localStorage.getItem(key) || '[]');
+  activeTaskId = null;
+  editingElapsedId = null;
+  movingTaskId = null;
+  clearInterval(tickInterval);
+
+  document.getElementById('taskDate').value = todayStr();
+  selectedDate = todayStr();
+  document.getElementById('taskName').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+  const running = tasks.find(t => t.running && t.startedAt);
+  if (running) {
+    activeTaskId = running.id;
+    const delta = Math.floor((Date.now() - running.startedAt) / 1000);
+    running.elapsedSec = (running._baseElapsed || 0) + delta;
+    if (running.elapsedSec >= running.estSec) {
+      running.elapsedSec = running.estSec;
+      running.running = false; running.done = true;
+      running.startedAt = null; activeTaskId = null;
+    }
+    saveTasks();
+  }
+  renderAll();
+  startTick();
+}
+
+function saveTasks() { localStorage.setItem(getUserStorageKey(), JSON.stringify(tasks)); }
+
+const MAX_DAY_SEC = 8 * 3600;
+
+function showAddError(msg) {
+  const el = document.getElementById('addError');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function addTask() {
+  const name = document.getElementById('taskName').value.trim().slice(0, 50);
+  const est = parseInt(document.getElementById('taskEst').value, 10);
+  const date = document.getElementById('taskDate').value;
+  if (!name || !est || !date) return;
+
+  const dayTotal = tasks.filter(t => t.date === date).reduce((a, t) => a + t.estSec, 0);
+  if (dayTotal + est * 60 > MAX_DAY_SEC) {
+    const remaining = Math.round((MAX_DAY_SEC - dayTotal) / 60);
+    showAddError(remaining <= 0
+      ? 'Day is full (8h max). Move tasks to another day first.'
+      : `Only ${remaining}m left today (8h daily max).`);
+    return;
+  }
+
+  tasks.push({ id: Date.now(), name, estSec: est * 60, date, elapsedSec: 0, running: false, done: false, startedAt: null, _baseElapsed: 0 });
+  saveTasks();
+  document.getElementById('taskName').value = '';
+  document.getElementById('taskEst').value = 30;
+  document.getElementById('addError').classList.remove('show');
+  selectedDate = date;
+  renderAll();
+  document.getElementById('taskName').focus();
+}
+
+function startTick() {
+  clearInterval(tickInterval);
+  tickInterval = setInterval(() => {
+    if (activeTaskId === null) return;
+    const t = tasks.find(x => x.id === activeTaskId);
+    if (!t || !t.running || !t.startedAt) return;
+    const delta = Math.floor((Date.now() - t.startedAt) / 1000);
+    t.elapsedSec = (t._baseElapsed || 0) + delta;
+    if (t.elapsedSec >= t.estSec) {
+      t.elapsedSec = t.estSec; t.running = false; t.done = true;
+      t.startedAt = null; activeTaskId = null;
+      saveTasks(); renderAll(); return;
+    }
+    liveUpdateTask(t);
+    updateSummary();
+  }, 1000);
+}
+
+function liveUpdateTask(t) {
+  if (editingElapsedId === t.id) return;
+  const timerEl = document.getElementById('timer-' + t.id);
+  const usedEl = document.getElementById('used-' + t.id);
+  const barEl = document.getElementById('bar-' + t.id);
+  if (!timerEl) return;
+  const rem = Math.max(t.estSec - t.elapsedSec, 0);
+  timerEl.textContent = fmtTime(rem);
+  timerEl.className = 'task-timer' + (rem < 60 ? ' urgent' : '');
+  if (usedEl) usedEl.textContent = fmtMin(t.elapsedSec) + ' used';
+  if (barEl) barEl.style.width = Math.min(100, Math.round(t.elapsedSec / t.estSec * 100)) + '%';
+}
+
+function updateSummary() {
+  const day = tasks.filter(t => t.date === selectedDate);
+  document.getElementById('totalEst').textContent = fmtMin(day.reduce((a, t) => a + t.estSec, 0));
+  document.getElementById('totalElapsed').textContent = fmtMin(day.reduce((a, t) => a + t.elapsedSec, 0));
+  document.getElementById('totalTasks').textContent = day.length;
+}
+
+function fmtTime(sec) { sec = Math.max(sec, 0); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+function fmtMin(sec) { const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60); return h > 0 ? h + 'h ' + m + 'm' : m + 'm'; }
+
+function toggleTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t || t.done) return;
+  if (t.running) {
+    t._baseElapsed = t.elapsedSec; t.startedAt = null; t.running = false; activeTaskId = null;
+  } else {
+    if (activeTaskId !== null && activeTaskId !== id) {
+      const prev = tasks.find(x => x.id === activeTaskId);
+      if (prev) { prev._baseElapsed = prev.elapsedSec; prev.startedAt = null; prev.running = false; }
+    }
+    t._baseElapsed = t.elapsedSec || 0; t.startedAt = Date.now(); t.running = true; activeTaskId = id;
+  }
+  saveTasks(); renderAll();
+}
+
+function markDone(id) {
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  if (t.running) { t._baseElapsed = t.elapsedSec; t.startedAt = null; t.running = false; if (activeTaskId === id) activeTaskId = null; }
+  t.done = !t.done;
+  if (t.done) {
+    t._elapsedBeforeDone = t.elapsedSec;
+    t.elapsedSec = t.estSec; t._baseElapsed = t.estSec;
+  } else {
+    t.elapsedSec = t._elapsedBeforeDone !== undefined ? t._elapsedBeforeDone : t.elapsedSec;
+    t._baseElapsed = t.elapsedSec;
+    t._elapsedBeforeDone = undefined;
+  }
+  saveTasks(); renderAll();
+}
+
+function deleteTask(id) {
+  if (activeTaskId === id) activeTaskId = null;
+  tasks = tasks.filter(x => x.id !== id);
+  saveTasks(); renderAll();
+}
+
+function startEditElapsed(id) {
+  editingElapsedId = id;
+  const t = tasks.find(x => x.id === id);
+  const container = document.getElementById('elapsed-edit-' + id);
+  if (!container || !t) return;
+  const curMin = Math.round(t.elapsedSec / 60);
+  const maxMin = Math.round(t.estSec / 60);
+  container.innerHTML = `<div class="inline-edit">
+    <input type="number" id="editVal-${id}" min="0" max="${maxMin}" value="${curMin}" inputmode="numeric" />
+    <span>min</span>
+    <button class="inline-edit-btn ok" onclick="commitEditElapsed(${id})" aria-label="Save"><i class="ti ti-check"></i></button>
+    <button class="inline-edit-btn cancel" onclick="cancelEditElapsed(${id})" aria-label="Cancel"><i class="ti ti-x"></i></button>
+  </div>`;
+  const inp = document.getElementById('editVal-' + id);
+  if (inp) {
+    inp.focus(); inp.select();
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') commitEditElapsed(id); if (e.key === 'Escape') cancelEditElapsed(id); });
+  }
+}
+
+function commitEditElapsed(id) {
+  const inp = document.getElementById('editVal-' + id);
+  if (!inp) return;
+  const t = tasks.find(x => x.id === id);
+  if (!t) return;
+  let val = parseInt(inp.value, 10);
+  if (isNaN(val) || val < 0) val = 0;
+  const maxMin = Math.round(t.estSec / 60);
+  if (val > maxMin) val = maxMin;
+  t.elapsedSec = val * 60; t._baseElapsed = t.elapsedSec;
+  if (t.running && t.startedAt) t.startedAt = Date.now();
+  editingElapsedId = null;
+  saveTasks(); renderAll();
+}
+
+function cancelEditElapsed(id) { editingElapsedId = null; renderAll(); }
+
+function startMoveDay(id) {
+  movingTaskId = id;
+  renderAll();
+  setTimeout(() => {
+    const inp = document.getElementById('moveDate-' + id);
+    if (inp) inp.focus();
+  }, 50);
+}
+
+function commitMoveDay(id) {
+  const inp = document.getElementById('moveDate-' + id);
+  if (!inp || !inp.value) { cancelMoveDay(); return; }
+  const newDate = inp.value;
+  if (newDate <= todayStr()) { inp.style.boxShadow = '0 0 0 2px var(--border-danger)'; return; }
+
+  const t = tasks.find(x => x.id === id);
+  if (!t) { cancelMoveDay(); return; }
+
+  const targetTotal = tasks.filter(x => x.date === newDate && x.id !== id).reduce((a, x) => a + x.estSec, 0);
+  if (targetTotal + t.estSec > MAX_DAY_SEC) {
+    const rem = Math.round((MAX_DAY_SEC - targetTotal) / 60);
+    inp.style.boxShadow = '0 0 0 2px var(--border-danger)';
+    const label = document.getElementById('moveError-' + id);
+    if (label) label.textContent = rem <= 0 ? 'That day is full (8h max).' : `Only ${rem}m left on that day.`;
+    return;
+  }
+
+  if (t.running) {
+    t._baseElapsed = t.elapsedSec; t.startedAt = null; t.running = false;
+    if (activeTaskId === id) activeTaskId = null;
+  }
+  t.date = newDate;
+  movingTaskId = null;
+  saveTasks();
+  renderAll();
+}
+
+function cancelMoveDay() { movingTaskId = null; renderAll(); }
+
+function selectDate(d) { selectedDate = d; renderAll(); }
+
+function formatDate(str) {
+  const [y, m, d] = str.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1] + ' ' + +d;
+}
+
+function renderDateTabs() {
+  const dates = [...new Set(tasks.map(t => t.date))].sort().reverse();
+  if (!dates.includes(todayStr())) dates.unshift(todayStr());
+  if (!dates.includes(selectedDate)) selectedDate = todayStr();
+  document.getElementById('dateTabs').innerHTML = dates.map(d =>
+    `<button class="date-tab ${d === selectedDate ? 'active' : ''}" onclick="selectDate('${d}')">${d === todayStr() ? 'Today' : formatDate(d)}</button>`
+  ).join('');
+}
+
+function renderAll() {
+  renderDateTabs();
+  const day = tasks.filter(t => t.date === selectedDate);
+  const el = document.getElementById('tasksList');
+
+  if (day.length === 0) {
+    el.innerHTML = '<div class="empty-state"><i class="ti ti-clock" aria-hidden="true"></i>No tasks for this day.<br>Add one above.</div>';
+    updateSummary(); return;
+  }
+
+  el.innerHTML = day.map(t => {
+    const rem = Math.max(t.estSec - t.elapsedSec, 0);
+    const pct = Math.min(100, Math.round(t.elapsedSec / t.estSec * 100));
+    const timerClass = 'task-timer' + (rem < 60 && !t.done ? ' urgent' : '');
+    const itemClass = 'task-item' + (t.running ? ' running' : '') + (t.done ? ' done' : '');
+
+    const metaContent = editingElapsedId === t.id ? '' :
+      `<div class="timer-row">
+         <span class="${timerClass}" id="timer-${t.id}">${t.done ? '0:00' : fmtTime(rem)}</span>
+         <button class="edit-elapsed-btn" onclick="startEditElapsed(${t.id})" aria-label="Edit elapsed">
+           <i class="ti ti-pencil"></i>
+         </button>
+       </div>
+       <span class="task-used" id="used-${t.id}">${fmtMin(t.elapsedSec)} used</span>
+       <div class="progress-bar-wrap"><div class="progress-bar-fill" id="bar-${t.id}" style="width:${pct}%"></div></div>`;
+
+    return `<div class="${itemClass}" id="item-${t.id}">
+      <div class="task-top">
+        <div class="task-name">
+          <span class="drag-handle" aria-label="Hold to reorder"><i class="ti ti-grip-vertical"></i></span>
+          <span class="status-dot ${t.running ? 'running' : t.done ? 'done' : ''}"></span>
+          <span class="task-name-text">${escHtml(t.name)}</span>
+        </div>
+        <div class="task-meta" id="elapsed-edit-${t.id}">${metaContent}</div>
+      </div>
+      <div class="task-bottom">
+        <div class="task-sub">${Math.round(t.estSec/60)}m est &nbsp;·&nbsp; ${pct}%</div>
+        <div class="task-controls">
+          <button class="icon-btn ${t.running ? 'active' : ''}" onclick="toggleTask(${t.id})" ${t.done ? 'disabled' : ''} aria-label="${t.running ? 'Pause' : 'Start'}">
+            <i class="ti ${t.running ? 'ti-player-pause' : 'ti-player-play'}"></i>
+          </button>
+          <button class="icon-btn" onclick="markDone(${t.id})" aria-label="${t.done ? 'Undo' : 'Done'}">
+            <i class="ti ${t.done ? 'ti-rotate-clockwise' : 'ti-check'}"></i>
+          </button>
+          <button class="icon-btn" onclick="startMoveDay(${t.id})" aria-label="Move to another day">
+            <i class="ti ti-calendar-event"></i>
+          </button>
+          <button class="icon-btn" onclick="deleteTask(${t.id})" aria-label="Delete">
+            <i class="ti ti-trash"></i>
+          </button>
+        </div>
+      </div>
+      ${movingTaskId === t.id ? `
+      <div class="move-day-row">
+        <input type="date" id="moveDate-${t.id}" min="${tomorrowStr()}" />
+        <button class="inline-edit-btn ok" onclick="commitMoveDay(${t.id})" aria-label="Confirm move"><i class="ti ti-check"></i></button>
+        <button class="inline-edit-btn cancel" onclick="cancelMoveDay()" aria-label="Cancel"><i class="ti ti-x"></i></button>
+        <span id="moveError-${t.id}" style="font-size:11px;color:var(--text-danger);width:100%;"></span>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  if (editingElapsedId !== null) {
+    const still = tasks.find(t => t.id === editingElapsedId);
+    if (still) startEditElapsed(editingElapsedId);
+  }
+  updateSummary();
+  setupTouchDrag();
+}
+
+let td = { id: null, ghost: null, srcEl: null, offsetY: 0, startY: 0, active: false, timer: null };
+
+function setupTouchDrag() {
+  document.querySelectorAll('.task-item').forEach(el => {
+    const id = parseInt(el.id.replace('item-', ''));
+
+    el.addEventListener('touchstart', e => {
+      td.startY = e.touches[0].clientY;
+      td.timer = setTimeout(() => startTouchDrag(el, id, e.touches[0]), 420);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', e => {
+      if (td.timer && Math.abs(e.touches[0].clientY - td.startY) > 6) {
+        clearTimeout(td.timer); td.timer = null;
+      }
+      if (td.active) { e.preventDefault(); moveTouchDrag(e.touches[0]); }
+    }, { passive: false });
+
+    el.addEventListener('touchend', () => {
+      clearTimeout(td.timer); td.timer = null;
+      if (td.active) endTouchDrag();
+    });
+
+    el.addEventListener('touchcancel', () => {
+      clearTimeout(td.timer); td.timer = null;
+      if (td.active) cancelTouchDrag();
+    });
+  });
+}
+
+function startTouchDrag(el, id, touch) {
+  if (navigator.vibrate) navigator.vibrate(40);
+  td.id = id; td.srcEl = el; td.active = true;
+  const rect = el.getBoundingClientRect();
+  td.offsetY = touch.clientY - rect.top;
+
+  const ghost = el.cloneNode(true);
+  ghost.className = 'task-item drag-ghost';
+  ghost.style.cssText += `top:${touch.clientY - td.offsetY}px;left:${rect.left}px;width:${rect.width}px;`;
+  document.body.appendChild(ghost);
+  td.ghost = ghost;
+  el.classList.add('touch-dragging');
+}
+
+function moveTouchDrag(touch) {
+  if (!td.ghost) return;
+  td.ghost.style.top = (touch.clientY - td.offsetY) + 'px';
+  td.ghost.style.display = 'none';
+  const hit = document.elementFromPoint(touch.clientX, touch.clientY);
+  td.ghost.style.display = '';
+  document.querySelectorAll('.task-item').forEach(i => i.classList.remove('drag-over'));
+  if (hit) { const item = hit.closest('.task-item'); if (item && item !== td.srcEl) item.classList.add('drag-over'); }
+}
+
+function endTouchDrag() {
+  const over = document.querySelector('.task-item.drag-over');
+  if (over) {
+    const tid = parseInt(over.id.replace('item-', ''));
+    const si = tasks.findIndex(t => t.id === td.id);
+    const ti = tasks.findIndex(t => t.id === tid);
+    if (si !== -1 && ti !== -1) { const [m] = tasks.splice(si, 1); tasks.splice(ti, 0, m); saveTasks(); }
+  }
+  cleanupTouchDrag(); renderAll();
+}
+
+function cancelTouchDrag() { cleanupTouchDrag(); }
+
+function cleanupTouchDrag() {
+  if (td.ghost) td.ghost.remove();
+  if (td.srcEl) td.srcEl.classList.remove('touch-dragging');
+  document.querySelectorAll('.task-item').forEach(i => i.classList.remove('drag-over'));
+  td = { id: null, ghost: null, srcEl: null, offsetY: 0, startY: 0, active: false, timer: null };
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+checkAuth();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+</script>
+</body>
+</html>
