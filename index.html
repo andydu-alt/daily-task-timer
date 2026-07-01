@@ -189,7 +189,10 @@
 
   .task-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .task-name { font-size: 15px; font-weight: 500; color: var(--text); display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-  .task-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .rename-btn { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+  .task-item:hover .rename-btn, .task-item:focus-within .rename-btn { opacity: 1; }
+  .rename-input { font-size: 15px; font-weight: 500; color: var(--text); background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; width: 100%; outline: none; }
 
   .task-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; min-width: 100px; }
   .timer-row { display: flex; align-items: center; gap: 4px; }
@@ -830,6 +833,7 @@ let activeTaskId = null;
 let tickInterval = null;
 let selectedDate = null;
 let editingElapsedId = null;
+let renamingTaskId = null;
 let movingTaskId = null;
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -1060,6 +1064,39 @@ function deleteTask(id) {
   saveTasks(); renderAll();
 }
 
+function startRenameTask(id) {
+  renamingTaskId = id;
+  const t = tasks.find(x => x.id === id);
+  const span = document.getElementById('task-name-text-' + id);
+  const btn = document.getElementById('rename-btn-' + id);
+  if (!span || !t) return;
+  span.innerHTML = `<input id="rename-input-${id}" class="rename-input" type="text" maxlength="50" value="${escHtml(t.name)}">`;
+  if (btn) btn.style.display = 'none';
+  const inp = document.getElementById('rename-input-' + id);
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') commitRename(id);
+    if (e.key === 'Escape') cancelRename(id);
+  });
+  inp.addEventListener('blur', () => commitRename(id));
+}
+
+function commitRename(id) {
+  if (renamingTaskId !== id) return;
+  renamingTaskId = null;
+  const inp = document.getElementById('rename-input-' + id);
+  if (!inp) return;
+  const name = inp.value.trim().slice(0, 50);
+  const t = tasks.find(x => x.id === id);
+  if (t && name) { t.name = name; t.updatedAt = Date.now(); saveTasks(); }
+  renderAll();
+}
+
+function cancelRename(id) {
+  renamingTaskId = null;
+  renderAll();
+}
+
 function startEditElapsed(id) {
   editingElapsedId = id;
   const t = tasks.find(x => x.id === id);
@@ -1183,7 +1220,8 @@ function renderAll() {
         <div class="task-name">
           <span class="drag-handle" aria-label="Hold to reorder"><i class="ti ti-grip-vertical"></i></span>
           <span class="status-dot ${t.running ? 'running' : t.done ? 'done' : ''}"></span>
-          <span class="task-name-text">${escHtml(t.name)}</span>
+          <span class="task-name-text" id="task-name-text-${t.id}">${escHtml(t.name)}</span>
+          <button class="icon-btn rename-btn" id="rename-btn-${t.id}" onclick="startRenameTask(${t.id})" aria-label="Rename"><i class="ti ti-pencil"></i></button>
         </div>
         <div class="task-meta" id="elapsed-edit-${t.id}">${metaContent}</div>
       </div>
