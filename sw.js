@@ -29,7 +29,7 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(e.request.url);
   const isHTML = url.origin === self.location.origin &&
-                 (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '');
+                 (url.pathname === '/daily-task-timer/' || url.pathname === '/daily-task-timer/index.html');
 
   if (isHTML) {
     // Network-first: always fetch latest HTML; fall back to cache if offline
