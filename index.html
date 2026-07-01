@@ -902,13 +902,28 @@ async function initApp() {
   tasks = JSON.parse(localStorage.getItem(key) || '[]');
   renderAll();
 
-  // Fetch from server — use server version if newer (more tasks)
+  // Fetch from server and merge by ID
   const serverTasks = await fetchTasksFromServer();
-  if (serverTasks && Array.isArray(serverTasks) && serverTasks.length >= tasks.length) {
-    tasks = serverTasks;
+  if (serverTasks && Array.isArray(serverTasks)) {
+    const deletedKey = getUserStorageKey() + '_deleted';
+    const deletedIds = new Set(JSON.parse(localStorage.getItem(deletedKey) || '[]'));
+    const merged = new Map();
+    // Index local tasks
+    for (const t of tasks) merged.set(t.id, t);
+    // Merge server tasks: add new ones, keep newer version on conflict
+    for (const t of serverTasks) {
+      if (deletedIds.has(t.id)) continue; // skip locally deleted
+      if (!merged.has(t.id)) {
+        merged.set(t.id, t);
+      } else {
+        const local = merged.get(t.id);
+        if ((t.updatedAt || 0) > (local.updatedAt || 0)) merged.set(t.id, t);
+      }
+    }
+    tasks = Array.from(merged.values());
     localStorage.setItem(key, JSON.stringify(tasks));
-  } else if (tasks.length > 0 && (!serverTasks || tasks.length > serverTasks.length)) {
-    // Local has more — push to server to sync
+    pushTasksToServer(tasks); // push merged result back
+  } else if (tasks.length > 0) {
     pushTasksToServer(tasks);
   }
 
@@ -951,7 +966,7 @@ function addTask() {
     return;
   }
 
-  tasks.push({ id: Date.now(), name, estSec: est * 60, date, elapsedSec: 0, running: false, done: false, startedAt: null, _baseElapsed: 0 });
+  tasks.push({ id: Date.now(), name, estSec: est * 60, date, elapsedSec: 0, running: false, done: false, startedAt: null, _baseElapsed: 0, updatedAt: Date.now() });
   saveTasks();
   document.getElementById('taskName').value = '';
   document.getElementById('taskEst').value = 30;
@@ -1030,12 +1045,18 @@ function markDone(id) {
     t._baseElapsed = t.elapsedSec;
     t._elapsedBeforeDone = undefined;
   }
+  t.updatedAt = Date.now();
   saveTasks(); renderAll();
 }
 
 function deleteTask(id) {
   if (activeTaskId === id) activeTaskId = null;
   tasks = tasks.filter(x => x.id !== id);
+  // Record deleted IDs so merge doesn't resurrect them from server
+  const deletedKey = getUserStorageKey() + '_deleted';
+  const deleted = JSON.parse(localStorage.getItem(deletedKey) || '[]');
+  deleted.push(id);
+  localStorage.setItem(deletedKey, JSON.stringify(deleted));
   saveTasks(); renderAll();
 }
 
