@@ -196,6 +196,7 @@
   #taskDesc { width: 100%; resize: vertical; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: inherit; outline: none; box-sizing: border-box; }
   #taskDesc:focus { border-color: var(--accent); }
   .task-desc { font-size: 13px; color: var(--text-muted); padding: 4px 12px 8px 12px; white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  .desc-toggle-btn { flex-shrink: 0; }
 
   .task-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; min-width: 100px; }
   .timer-row { display: flex; align-items: center; gap: 4px; }
@@ -841,6 +842,7 @@ let tickInterval = null;
 let selectedDate = null;
 let editingElapsedId = null;
 let renamingTaskId = null;
+const expandedDescs = new Set();
 let movingTaskId = null;
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -1106,6 +1108,12 @@ function cancelRename(id) {
   renderAll();
 }
 
+function toggleDesc(id) {
+  if (expandedDescs.has(id)) expandedDescs.delete(id);
+  else expandedDescs.add(id);
+  renderAll();
+}
+
 function startEditElapsed(id) {
   editingElapsedId = id;
   const t = tasks.find(x => x.id === id);
@@ -1231,6 +1239,7 @@ function renderAll() {
           <span class="status-dot ${t.running ? 'running' : t.done ? 'done' : ''}"></span>
           <span class="task-name-text" id="task-name-text-${t.id}">${escHtml(t.name)}</span>
           <button class="icon-btn rename-btn" id="rename-btn-${t.id}" onclick="startRenameTask(${t.id})" aria-label="Rename"><i class="ti ti-pencil"></i></button>
+          ${t.desc ? `<button class="icon-btn desc-toggle-btn" onclick="toggleDesc(${t.id})" aria-label="${expandedDescs.has(t.id) ? 'Collapse' : 'Expand'} description"><i class="ti ${expandedDescs.has(t.id) ? 'ti-chevron-up' : 'ti-chevron-down'}"></i></button>` : ''}
         </div>
         <div class="task-meta" id="elapsed-edit-${t.id}">${metaContent}</div>
       </div>
@@ -1251,7 +1260,7 @@ function renderAll() {
           </button>
         </div>
       </div>
-      ${t.desc ? `<div class="task-desc">${escHtml(t.desc)}</div>` : ''}
+      ${t.desc && expandedDescs.has(t.id) ? `<div class="task-desc">${escHtml(t.desc)}</div>` : ''}
       ${movingTaskId === t.id ? `
       <div class="move-day-row">
         <input type="date" id="moveDate-${t.id}" min="${tomorrowStr()}" />
